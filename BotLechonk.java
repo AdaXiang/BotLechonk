@@ -5,10 +5,19 @@ import java.text.Normalizer;
 
 // Scrapping de ficheros, contabilización de palabras, serialización y deserialización de objetos
 public class BotLechonk {
-    private Queue <String> frontier = new LinkedList <String> (); // Cola de rutas de ficheros a procesar
-    private Map <String, Ocurrencia> diccionario = new TreeMap <String, Ocurrencia> (); // TreeMap ordena por clave, HashMap no lo hace
-    private List <String> extensiones = new ArrayList <String> (Arrays.asList("txt", "java", "c", "cpp")); // Extensiones de ficheros a procesar
-    private int modo = 0; // 0: iterativo, 1: recursivo
+    // Cola de rutas de ficheros a procesar
+    private Queue <String> frontier = new LinkedList <String> (); 
+    // TreeMap ordena por clave, HashMap no lo hace
+    private Map <String, Ocurrencia> diccionario = new TreeMap <String, Ocurrencia> (); 
+    // Extensiones de ficheros a procesar
+    private List <String> extensiones = new ArrayList <String> (Arrays.asList("txt", "java", "c", "cpp")); 
+    
+    // 0: iterativo, 1: recursivo
+    private int modo = 0; 
+
+    // Instancia del singleton para gestionar la FAT (File Allocation Table)
+    private FATManager fatManager = FATManager.getInstance(); 
+
     // Constante
     private static final String FICHERO_SALIDA = "diccionario.dir";
 
@@ -24,7 +33,7 @@ public class BotLechonk {
             File actual = queue.poll(); // Saca y elimina el primer elemento
 
             if (actual.isDirectory()) {
-                File[] lista = actual.listFiles(); // Mejor que .list() porque da objetos File
+                File[] lista = actual.listFiles(); 
                 if (lista != null) {
                     for (File f : lista) {
                         queue.add(f); // Añadimos carpetas y archivos a la cola
@@ -41,10 +50,11 @@ public class BotLechonk {
 
      public void listRec(File directorioRaiz) throws Exception {
         if (directorioRaiz.isDirectory()) {
-            File[] lista = directorioRaiz.listFiles(); // Mejor que .list() porque da objetos File
+            File[] lista = directorioRaiz.listFiles(); 
             if (lista != null) {
                 for (File f : lista) {
-                    this.listRec(f); // Llamada recursiva para procesar subdirectorios
+                    // Llamada recursiva para procesar subdirectorios
+                    this.listRec(f); 
                 }
             }
         } else {
@@ -69,6 +79,7 @@ public class BotLechonk {
 
             // Quitar stopwords, como "el", "la", "de", "y", etc., que no aportan nada al análisis de texto
             StringTokenizer st = new StringTokenizer (linea, " ,.:;(){}!°?\t''%/|[]<=>&#+*$-¨^~¡¿");
+
             while (st.hasMoreTokens () ) {
                 String s = st.nextToken();
                 // Se consulta el diccionario para ver si la palabra ya existe
@@ -77,16 +88,16 @@ public class BotLechonk {
                 // Si la palabra no existe en el diccionario:
                 if (o == null){
                     // Se crea una ocurrencia con FTG=0 y se añade el fichero al diccionario parcial
-                    Ocurrencia oc = new Ocurrencia(0, new TreeMap<String, Integer>());
+                    Ocurrencia oc = new Ocurrencia(0, new TreeMap<Integer, Integer>());
                     // Se inserta la ocurrencia del fichero en el diccionario parcial y se incrementa el FTG
-                    oc.insertarOcurrencia(fichEntrada.getAbsolutePath());
+                    oc.insertarOcurrencia(fatManager.getIdByPath(fichEntrada.getAbsolutePath()));
                     diccionario.put (s, oc);
                 }
                 // Si la palabra ya existe en el diccionario, se actualiza la ocurrencia del fichero 
                 // en el diccionario parcial y se incrementa el FTG
                 else {
                     Ocurrencia oc = (Ocurrencia) o;
-                    oc.insertarOcurrencia(fichEntrada.getAbsolutePath());
+                    oc.insertarOcurrencia(fatManager.getIdByPath(fichEntrada.getAbsolutePath()));
                 }
             }
         }
@@ -147,6 +158,45 @@ public class BotLechonk {
         }
         this.salvarObjeto(FICHERO_SALIDA);
     }
+
+    public void menuConsulta(){
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("Elige como prefieres que muestre la informacion:");
+        System.out.println("[1] De mayor a menor FTP");
+        System.out.println("[2] De menor a mayor FTP");
+        System.out.println("[3] De mas cerca al directorio local");
+        System.out.println("[4] De mas lejos al directorio local");
+
+        Integer modo = scanner.nextInt();
+        scanner.nextLine(); 
+
+        if (modo < 1 || modo > 4) {
+            System.out.println(Colores.AMARILLO + "Modo no valido. Por defecto se mostrara de mayor a menor FTG" + Colores.RESET);
+            modo = 1;
+        }
+
+        while (true){
+            System.out.println(Colores.AZUL + "Palabra a consultar : " + Colores.RESET);
+            String palabra = scanner.nextLine();
+        
+            if(palabra.equalsIgnoreCase("q")){
+                System.out.println(Colores.AMARILLO + "Saliendo del programa" + Colores.RESET);
+                break;
+            }
+
+            Object object = this.diccionario.get(palabra);
+
+            if(object == null){
+                System.out.println("No se encontro la palabra. Pruebe con otra.");
+            }
+            else {
+                ((Ocurrencia) object).showDiccionarioModo(modo);
+            }
+        }
+        scanner.close();
+    }
+
     public static void main (String [] args) throws Exception {
         if(args.length < 1 || args.length > 2){
             System.out.println(Colores.ROJO + "ERROR. Ejecutar: >java BotLechonk nombre_directorio [modo]" + Colores.RESET);
@@ -157,7 +207,7 @@ public class BotLechonk {
         if(args.length == 2 && (Integer.parseInt(args[1]) == 0 || Integer.parseInt(args[1]) == 1))
             bot.setMode(Integer.parseInt(args[1]));
         else
-            System.out.println(Colores.AMARILLO + "WARNING. Modo tiene que ser 0 o 1. Por defecto será iterativo" + Colores.RESET); // Por defecto es 0
+            System.out.println(Colores.AMARILLO + "WARNING. Modo tiene que ser 0 o 1. Por defecto sera iterativo" + Colores.RESET); // Por defecto es 0
             
         // Si el fichero de salida ya existe, se carga el objeto serializado previamente, en lugar de volver a procesar los ficheros del directorio
         if (ficheroSalida.exists()) {
@@ -167,7 +217,7 @@ public class BotLechonk {
             bot.scrapping(args[0]);
         }
     
-       bot.showDiccionario();
+        bot.menuConsulta();
     }
 
 }
