@@ -161,7 +161,7 @@ public class BotLechonk {
 
     public void menuConsulta(){
         Scanner scanner = new Scanner(System.in);
-
+        Boolean exit = false;
         System.out.println("Elige como prefieres que muestre la informacion:");
         System.out.println("[1] De mayor a menor FTP");
         System.out.println("[2] De menor a mayor FTP");
@@ -176,13 +176,14 @@ public class BotLechonk {
             modo = 1;
         }
 
-        while (true){
+        while (!exit){
             System.out.println(Colores.AZUL + "Palabra a consultar : " + Colores.RESET);
             String palabra = scanner.nextLine();
         
             if(palabra.equalsIgnoreCase("q")){
                 System.out.println(Colores.AMARILLO + "Saliendo del programa" + Colores.RESET);
-                break;
+                exit = true;
+                continue;
             }
 
             Object object = this.diccionario.get(palabra);
