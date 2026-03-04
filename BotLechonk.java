@@ -11,6 +11,8 @@ public class BotLechonk {
     private Map <String, Ocurrencia> diccionario = new TreeMap <String, Ocurrencia> (); 
     // Extensiones de ficheros a procesar
     private List <String> extensiones = new ArrayList <String> (Arrays.asList("txt", "java", "c", "cpp")); 
+    // Thesaurus
+    private Map<String, TokenRelation> thesaurus = new TreeMap<String, TokenRelation>();
     
     // 0: iterativo, 1: recursivo
     private int modo = 0; 
@@ -18,8 +20,9 @@ public class BotLechonk {
     // Instancia del singleton para gestionar la FAT (File Allocation Table)
     private FATManager fatManager = FATManager.getInstance(); 
 
-    // Constante
+    // Constantes
     private static final String FICHERO_SALIDA = "diccionario.dir";
+    private static final String FICHERO_THESAURUS = "thesaurus.rex";
 
     public void setMode (int modo){
         this.modo = modo;
@@ -198,12 +201,27 @@ public class BotLechonk {
         scanner.close();
     }
 
+    public void thesaurusToMap () {
+
+    }
+
     public static void main (String [] args) throws Exception {
         if(args.length < 1 || args.length > 2){
             System.out.println(Colores.ROJO + "ERROR. Ejecutar: >java BotLechonk nombre_directorio [modo]" + Colores.RESET);
             return;
         } 
+
         BotLechonk bot = new BotLechonk();
+
+        // Vertir el Thesaurus en un TreeMap si no existe
+        File ficheroThesaurus = new File(FICHERO_THESAURUS);
+        if (!ficheroThesaurus.exists()) {
+            bot.thesaurusToMap();
+        }
+        else {
+            //bot.cargarThesaurus(FICHERO_THESAURUS);
+        }
+
         File ficheroSalida = new File(FICHERO_SALIDA);
         if(args.length == 2 && (Integer.parseInt(args[1]) == 0 || Integer.parseInt(args[1]) == 1))
             bot.setMode(Integer.parseInt(args[1]));
