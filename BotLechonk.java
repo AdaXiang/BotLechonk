@@ -1,6 +1,7 @@
 package BotLechonk;
 import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.text.Normalizer;
 
 // Scrapping de ficheros, contabilización de palabras, serialización y deserialización de objetos
@@ -12,7 +13,7 @@ public class BotLechonk {
     // Extensiones de ficheros a procesar
     private List <String> extensiones = new ArrayList <String> (Arrays.asList("txt", "java", "c", "cpp")); 
     // Thesaurus
-    private Map<String, TokenRelation> thesaurus = new TreeMap<String, TokenRelation>();
+    private Map<String, TokenRelation> thesauro = new TreeMap<String, TokenRelation>();
     
     // 0: iterativo, 1: recursivo
     private int modo = 0; 
@@ -22,7 +23,8 @@ public class BotLechonk {
 
     // Constantes
     private static final String FICHERO_SALIDA = "diccionario.dir";
-    private static final String FICHERO_THESAURUS = "thesaurus.rex";
+    private static final String FICHERO_THESAURO = "thesauro.rex";
+    private static final String THESAURO_TXT = "Thesaurus_es_ES.txt";
 
     public void setMode (int modo){
         this.modo = modo;
@@ -85,6 +87,11 @@ public class BotLechonk {
 
             while (st.hasMoreTokens () ) {
                 String s = st.nextToken();
+                
+                if(!thesauro.containsKey(s)) {
+                    continue; // Si la palabra no está en el thesauro, se ignora
+                }
+
                 // Se consulta el diccionario para ver si la palabra ya existe
                 Object o = diccionario.get(s);
 
@@ -133,6 +140,32 @@ public class BotLechonk {
         catch (Exception e) { System.out.println(e); }
     }
 
+    public void salvarThesauro (String nombreFichero) {
+        System.out.println(Colores.VERDE + "Salvando objeto en " + nombreFichero + Colores.RESET);
+        Map<String, TokenRelation> h = new TreeMap <String, TokenRelation> ();
+        h.putAll(thesauro);
+        try {
+            FileOutputStream fos = new FileOutputStream(nombreFichero);
+            ObjectOutputStream oos = new ObjectOutputStream(fos);
+            oos.writeObject(h);
+            oos.close();
+        }
+        catch (Exception e) { System.out.println(e); }
+    }
+
+    @SuppressWarnings("unchecked")
+    public void cargarThesauro (String nombreFichero) {
+        System.out.println(Colores.VERDE + "Cargando objeto desde " + nombreFichero + Colores.RESET);
+        try {
+            FileInputStream fis = new FileInputStream(nombreFichero);
+            ObjectInputStream ois = new ObjectInputStream(fis);
+            // Se guarda el objeto deserializado en la estructura de datos correspondiente, para posteriormente procesarlo
+            thesauro = (Map<String, TokenRelation>) ois.readObject();
+            ois.close();
+        }
+        catch (Exception e) { System.out.println(e); }
+    }
+
     public boolean esExtensionValida (String nombreFichero) {
         String extension = nombreFichero.substring(nombreFichero.lastIndexOf('.') + 1);
         return this.extensiones.contains(extension);
@@ -162,9 +195,43 @@ public class BotLechonk {
         this.salvarObjeto(FICHERO_SALIDA);
     }
 
+    public void showResultados(String palabra, int modo){
+        Object object = this.diccionario.get(palabra);
+
+        if(object == null){
+            System.out.println("No se encontro la palabra. Pruebe con otra.");
+        }
+        else {
+            ((Ocurrencia) object).showDiccionarioModo(modo);
+            if (thesauro.containsKey(palabra)) {
+                    System.out.println(Colores.VERDE + "Resultados sinonimos de " + palabra + ": " + Colores.RESET);
+                    TokenRelation tr = thesauro.get(palabra);
+                    for (Map.Entry<TipoSinonimo, List<String>> entry : tr.getRelaciones().entrySet()) {
+                        TipoSinonimo tipo = entry.getKey();
+                        List<String> sinonimos = entry.getValue();
+                       
+                        for (String sinonimo : sinonimos) {
+                            Object objectSinonimo = this.diccionario.get(sinonimo);
+                            // if (palabra.equals(sinonimo)) {
+                            //     continue; // No mostrar la palabra consultada como sinonimo de sí misma
+                            // }
+                            if(objectSinonimo != null){
+                                System.out.println(Colores.VERDE + tipo + ": " + sinonimo + Colores.RESET);
+                                ((Ocurrencia) objectSinonimo).showDiccionarioModo(modo);
+                            }
+                        }
+                    }
+            }
+            else {
+                System.out.println(Colores.AMARILLO + "No se encontraron sinonimos para la palabra " + palabra + Colores.RESET);
+            }
+        }
+    }
+
     public void menuConsulta(){
         Scanner scanner = new Scanner(System.in);
         Boolean exit = false;
+        showDiccionario();
         System.out.println("Elige como prefieres que muestre la informacion:");
         System.out.println("[1] De mayor a menor FTP");
         System.out.println("[2] De menor a mayor FTP");
@@ -188,21 +255,66 @@ public class BotLechonk {
                 exit = true;
                 continue;
             }
-
-            Object object = this.diccionario.get(palabra);
-
-            if(object == null){
-                System.out.println("No se encontro la palabra. Pruebe con otra.");
-            }
-            else {
-                ((Ocurrencia) object).showDiccionarioModo(modo);
-            }
+            showResultados(palabra, modo);
         }
         scanner.close();
     }
 
-    public void thesaurusToMap () {
+    public void thesauroToMap () {
+        try {
+            BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(THESAURO_TXT), "UTF-8"));
+        String linea;
 
+        while ( (linea = br.readLine () ) != null) {
+            if (linea.substring(0).equals("#")) {
+                continue; // Ignorar líneas que comienzan con "#"
+            }
+
+            // Normalizar a minúscula
+            linea = linea.toLowerCase();
+            // Eliminar acentos y caracteres especiales
+            linea = Normalizer.normalize(linea, Normalizer.Form.NFD); 
+            // Eliminar caracteres no ASCII
+            linea = linea.replaceAll("[^\\p{ASCII}]", ""); 
+
+            List<String> partes = new ArrayList<>(
+            Arrays.stream(linea.split("[;,]"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList())
+            );
+            partes.removeIf(parte -> parte.contains(" ") && !parte.contains(" ("));
+            for (String parte : partes) {
+                if(thesauro.containsKey(parte)){
+                    TokenRelation tr = thesauro.get(parte);
+                    tr.addRelaciones(partes, parte);
+
+                    // for (String sinonimo : tr.getNombresRelaciones()) {
+                    //     if (thesauro.containsKey(sinonimo)) {
+                    //         TokenRelation trSinonimo = thesauro.get(sinonimo);
+                    //         trSinonimo.addRelaciones(tr.getRelaciones(), sinonimo);
+                    //     }
+                    // }
+                }
+                else {
+                    TokenRelation tr = new TokenRelation();
+                    tr.addRelaciones(partes, parte);
+                    thesauro.put(parte, tr);
+                }
+            }
+        }
+        br.close ();
+        }
+        catch (Exception e) { System.out.println(e); }
+    }
+
+    public void showThesauro () {
+        for (String clave : thesauro.keySet()) {
+            System.out.println(Colores.AZUL + clave + ": " + Colores.RESET);
+            for (String sinonimo : thesauro.get(clave).getNombresRelaciones()) {
+                System.out.println("\t" + sinonimo);
+            }
+        }
     }
 
     public static void main (String [] args) throws Exception {
@@ -214,12 +326,14 @@ public class BotLechonk {
         BotLechonk bot = new BotLechonk();
 
         // Vertir el Thesaurus en un TreeMap si no existe
-        File ficheroThesaurus = new File(FICHERO_THESAURUS);
-        if (!ficheroThesaurus.exists()) {
-            bot.thesaurusToMap();
+        File ficheroThesauro = new File(FICHERO_THESAURO);
+        if (!ficheroThesauro.exists()) {
+            bot.thesauroToMap(); //indexar el thesaurus y guardarlo en un TreeMap
+            bot.salvarThesauro(FICHERO_THESAURO); //serializar el TreeMap para futuras consultas
+            //bot.showThesauro(); //mostrar el thesauro por consola
         }
         else {
-            //bot.cargarThesaurus(FICHERO_THESAURUS);
+            bot.cargarThesauro(FICHERO_THESAURO);
         }
 
         File ficheroSalida = new File(FICHERO_SALIDA);
