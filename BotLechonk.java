@@ -22,13 +22,17 @@ public class BotLechonk {
     private FATManager fatManager = FATManager.getInstance(); 
 
     // Constantes
-    private static final String FICHERO_SALIDA = "diccionario.dir";
-    private static final String FICHERO_THESAURO = "thesauro.rex";
-    private static final String THESAURO_TXT = "Thesaurus_es_ES.txt";
+    private static final String FICHERO_SALIDA = "BotLechonk/data/diccionario.dir";
+    private static final String FICHERO_THESAURO = "BotLechonk/data/thesauro.rex";
+    private static final String THESAURO_TXT = "BotLechonk/data/Thesaurus_es_ES.txt";
 
     public void setMode (int modo){
         this.modo = modo;
     }
+
+    // =======================================================================================================
+    // ==================================== UTILES CRAWLET ===================================================
+    // =======================================================================================================
 
     public void listIt(File directorioRaiz) throws Exception {
         Queue<File> queue = new LinkedList<File>();
@@ -114,6 +118,15 @@ public class BotLechonk {
         br.close ();
     }
 
+    public boolean esExtensionValida (String nombreFichero) {
+        String extension = nombreFichero.substring(nombreFichero.lastIndexOf('.') + 1);
+        return this.extensiones.contains(extension);
+    }
+
+    // =======================================================================================================
+    // ==================================== ALMACEN Y CARGA DE DICCIONARIO ===================================
+    // =======================================================================================================
+
     public void salvarObjeto (String nombreFichero) {
         System.out.println(Colores.VERDE + "Salvando objeto en " + nombreFichero + Colores.RESET);
         Map<String, Ocurrencia> h = new TreeMap <String, Ocurrencia> ();
@@ -139,6 +152,10 @@ public class BotLechonk {
         }
         catch (Exception e) { System.out.println(e); }
     }
+
+    // =======================================================================================================
+    // ==================================== ALMACEN Y CARGA DE THESAURO ======================================
+    // =======================================================================================================
 
     public void salvarThesauro (String nombreFichero) {
         System.out.println(Colores.VERDE + "Salvando objeto en " + nombreFichero + Colores.RESET);
@@ -166,10 +183,9 @@ public class BotLechonk {
         catch (Exception e) { System.out.println(e); }
     }
 
-    public boolean esExtensionValida (String nombreFichero) {
-        String extension = nombreFichero.substring(nombreFichero.lastIndexOf('.') + 1);
-        return this.extensiones.contains(extension);
-    }
+    // =======================================================================================================
+    // ============================================ MOSTRAR INFORMACION ======================================
+    // =======================================================================================================
 
     public void showDiccionario () {
         for (String clave : diccionario.keySet()) {
@@ -178,33 +194,18 @@ public class BotLechonk {
         }
     }
 
-    public void scrapping (String rutaDirectorio) throws Exception {
-        File fichero = new File(rutaDirectorio);
-        if (modo == 0) {
-            System.out.println(Colores.AMARILLO + "Modo iterativo" + Colores.RESET);
-            this.listIt(fichero);
-        }
-        else {
-            System.out.println(Colores.AMARILLO + "Modo recursivo" + Colores.RESET);
-            this.listRec(fichero);
-        }
-           
-        for (String rutaFichero : this.frontier) {
-            this.contPalabras(new File(rutaFichero));
-        }
-        this.salvarObjeto(FICHERO_SALIDA);
-    }
-
     public void showResultados(String palabra, int modo){
         Object object = this.diccionario.get(palabra);
 
         if(object == null){
-            System.out.println("No se encontro la palabra. Pruebe con otra.");
+            System.out.println(Colores.AMARILLO+"No se encontro la palabra. Pruebe con otra."+Colores.RESET);
         }
         else {
             ((Ocurrencia) object).showDiccionarioModo(modo);
             if (thesauro.containsKey(palabra)) {
+                    System.out.println(Colores.VERDE + "=========================================================================" + Colores.RESET);
                     System.out.println(Colores.VERDE + "Resultados sinonimos de " + palabra + ": " + Colores.RESET);
+                    System.out.println(Colores.VERDE + "=========================================================================" + Colores.RESET);
                     TokenRelation tr = thesauro.get(palabra);
                     for (Map.Entry<TipoSinonimo, List<String>> entry : tr.getRelaciones().entrySet()) {
                         TipoSinonimo tipo = entry.getKey();
@@ -212,11 +213,8 @@ public class BotLechonk {
                        
                         for (String sinonimo : sinonimos) {
                             Object objectSinonimo = this.diccionario.get(sinonimo);
-                            // if (palabra.equals(sinonimo)) {
-                            //     continue; // No mostrar la palabra consultada como sinonimo de sí misma
-                            // }
                             if(objectSinonimo != null){
-                                System.out.println(Colores.VERDE + tipo + ": " + sinonimo + Colores.RESET);
+                                System.out.println(Colores.CYAN + tipo + ": " + sinonimo + Colores.RESET);
                                 ((Ocurrencia) objectSinonimo).showDiccionarioModo(modo);
                             }
                         }
@@ -228,37 +226,18 @@ public class BotLechonk {
         }
     }
 
-    public void menuConsulta(){
-        Scanner scanner = new Scanner(System.in);
-        Boolean exit = false;
-        showDiccionario();
-        System.out.println("Elige como prefieres que muestre la informacion:");
-        System.out.println("[1] De mayor a menor FTP");
-        System.out.println("[2] De menor a mayor FTP");
-        System.out.println("[3] De mas cerca al directorio local");
-        System.out.println("[4] De mas lejos al directorio local");
-
-        Integer modo = scanner.nextInt();
-        scanner.nextLine(); 
-
-        if (modo < 1 || modo > 4) {
-            System.out.println(Colores.AMARILLO + "Modo no valido. Por defecto se mostrara de mayor a menor FTG" + Colores.RESET);
-            modo = 1;
-        }
-
-        while (!exit){
-            System.out.println(Colores.AZUL + "Palabra a consultar : " + Colores.RESET);
-            String palabra = scanner.nextLine();
-        
-            if(palabra.equalsIgnoreCase("q")){
-                System.out.println(Colores.AMARILLO + "Saliendo del programa" + Colores.RESET);
-                exit = true;
-                continue;
+    public void showThesauro () {
+        for (String clave : thesauro.keySet()) {
+            System.out.println(Colores.AZUL + clave + ": " + Colores.RESET);
+            for (String sinonimo : thesauro.get(clave).getNombresRelaciones()) {
+                System.out.println("\t" + sinonimo);
             }
-            showResultados(palabra, modo);
         }
-        scanner.close();
     }
+
+    // =======================================================================================================
+    // ==================================== FORMAR THESAURO ==================================================
+    // =======================================================================================================
 
     public void thesauroToMap () {
         try {
@@ -308,13 +287,57 @@ public class BotLechonk {
         catch (Exception e) { System.out.println(e); }
     }
 
-    public void showThesauro () {
-        for (String clave : thesauro.keySet()) {
-            System.out.println(Colores.AZUL + clave + ": " + Colores.RESET);
-            for (String sinonimo : thesauro.get(clave).getNombresRelaciones()) {
-                System.out.println("\t" + sinonimo);
-            }
+    // =======================================================================================================
+    // ============================================ LOGICA ======================================
+    // =======================================================================================================
+
+    public void scrapping (String rutaDirectorio) throws Exception {
+        File fichero = new File(rutaDirectorio);
+        if (modo == 0) {
+            System.out.println(Colores.AMARILLO + "Modo iterativo" + Colores.RESET);
+            this.listIt(fichero);
         }
+        else {
+            System.out.println(Colores.AMARILLO + "Modo recursivo" + Colores.RESET);
+            this.listRec(fichero);
+        }
+           
+        for (String rutaFichero : this.frontier) {
+            this.contPalabras(new File(rutaFichero));
+        }
+        this.salvarObjeto(FICHERO_SALIDA);
+    }
+
+    public void menuConsulta(){
+        Scanner scanner = new Scanner(System.in);
+        Boolean exit = false;
+        //showDiccionario();
+        System.out.println("Elige como prefieres que muestre la informacion:");
+        System.out.println("[1] De mayor a menor FTP");
+        System.out.println("[2] De menor a mayor FTP");
+        System.out.println("[3] De mas cerca al directorio local");
+        System.out.println("[4] De mas lejos al directorio local");
+
+        Integer modo = scanner.nextInt();
+        scanner.nextLine(); 
+
+        if (modo < 1 || modo > 4) {
+            System.out.println(Colores.AMARILLO + "Modo no valido. Por defecto se mostrara de mayor a menor FTG" + Colores.RESET);
+            modo = 1;
+        }
+
+        while (!exit){
+            System.out.println(Colores.AZUL + "Palabra a consultar : " + Colores.RESET);
+            String palabra = scanner.nextLine();
+        
+            if(palabra.equalsIgnoreCase("q")){
+                System.out.println(Colores.AMARILLO + "Saliendo del programa" + Colores.RESET);
+                exit = true;
+                continue;
+            }
+            showResultados(palabra, modo);
+        }
+        scanner.close();
     }
 
     public static void main (String [] args) throws Exception {

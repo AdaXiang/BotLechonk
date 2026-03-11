@@ -57,14 +57,14 @@ public class Ocurrencia implements Serializable, Comparable <Ocurrencia>{
 
     public void showDiccionarioModo (Integer modo){
         System.out.println(Colores.AMARILLO + "Modo " + modo + Colores.RESET);
-        System.out.println("FTG: " + this.FTG);
+        System.out.println("\tFTG: " + this.FTG);
         switch (modo) {
             case 1: // De mayor a menor FTG, y en caso de empate, orden alfabético
                 this.diccionarioParcial.entrySet()
                 .stream()
                 .sorted(Map.Entry.<Integer, Integer>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
                 .forEach(e ->
-                    System.out.println(fatManager.getPathById(e.getKey()) + " -> " + e.getValue())
+                    System.out.println(Colores.MAGENTA+"\t"+fatManager.getPathById(e.getKey()) + " -> " + e.getValue()+Colores.RESET)
                 );
 
                 break;
@@ -74,7 +74,7 @@ public class Ocurrencia implements Serializable, Comparable <Ocurrencia>{
                 .stream()
                 .sorted(Map.Entry.<Integer, Integer>comparingByValue().thenComparing(Map.Entry.comparingByKey()))
                 .forEach(e ->
-                    System.out.println(fatManager.getPathById(e.getKey()) + " -> " + e.getValue())
+                    System.out.println(Colores.MAGENTA+"\t"+fatManager.getPathById(e.getKey()) + " -> " + e.getValue()+Colores.RESET)
                 );
                 break;
 
@@ -88,7 +88,7 @@ public class Ocurrencia implements Serializable, Comparable <Ocurrencia>{
                 .thenComparing(Map.Entry.comparingByKey())
                 )
                 .forEach(e ->
-                    System.out.println(fatManager.getPathById(e.getKey()) + " -> " + e.getValue())
+                    System.out.println(Colores.MAGENTA+"\t"+fatManager.getPathById(e.getKey()) + " -> " + e.getValue()+Colores.RESET)
                 );
                 break;
 
@@ -103,7 +103,7 @@ public class Ocurrencia implements Serializable, Comparable <Ocurrencia>{
                 .thenComparing(Map.Entry.comparingByKey())
                 )
                 .forEach(e ->
-                    System.out.println(fatManager.getPathById(e.getKey()) + " -> " + e.getValue())
+                    System.out.println(Colores.MAGENTA+"\t"+fatManager.getPathById(e.getKey()) + " -> " + e.getValue()+Colores.RESET)
                 );
                 break;
         
