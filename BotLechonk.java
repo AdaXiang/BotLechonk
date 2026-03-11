@@ -242,47 +242,47 @@ public class BotLechonk {
     public void thesauroToMap () {
         try {
             BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(THESAURO_TXT), "UTF-8"));
-        String linea;
+            String linea;
 
-        while ( (linea = br.readLine () ) != null) {
-            if (linea.substring(0).equals("#")) {
-                continue; // Ignorar líneas que comienzan con "#"
-            }
-
-            // Normalizar a minúscula
-            linea = linea.toLowerCase();
-            // Eliminar acentos y caracteres especiales
-            linea = Normalizer.normalize(linea, Normalizer.Form.NFD); 
-            // Eliminar caracteres no ASCII
-            linea = linea.replaceAll("[^\\p{ASCII}]", ""); 
-
-            List<String> partes = new ArrayList<>(
-            Arrays.stream(linea.split("[;,]"))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toList())
-            );
-            partes.removeIf(parte -> parte.contains(" ") && !parte.contains(" ("));
-            for (String parte : partes) {
-                if(thesauro.containsKey(parte)){
-                    TokenRelation tr = thesauro.get(parte);
-                    tr.addRelaciones(partes, parte);
-
-                    // for (String sinonimo : tr.getNombresRelaciones()) {
-                    //     if (thesauro.containsKey(sinonimo)) {
-                    //         TokenRelation trSinonimo = thesauro.get(sinonimo);
-                    //         trSinonimo.addRelaciones(tr.getRelaciones(), sinonimo);
-                    //     }
-                    // }
+            while ( (linea = br.readLine () ) != null) {
+                if (linea.substring(0).equals("#")) {
+                    continue; // Ignorar líneas que comienzan con "#"
                 }
-                else {
-                    TokenRelation tr = new TokenRelation();
-                    tr.addRelaciones(partes, parte);
-                    thesauro.put(parte, tr);
+
+                // Normalizar a minúscula
+                linea = linea.toLowerCase();
+                // Eliminar acentos y caracteres especiales
+                linea = Normalizer.normalize(linea, Normalizer.Form.NFD); 
+                // Eliminar caracteres no ASCII
+                linea = linea.replaceAll("[^\\p{ASCII}]", ""); 
+
+                List<String> partes = new ArrayList<>(
+                Arrays.stream(linea.split("[;,]"))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList())
+                );
+                partes.removeIf(parte -> parte.contains(" ") && !parte.contains(" ("));
+                for (String parte : partes) {
+                    if(thesauro.containsKey(parte)){
+                        TokenRelation tr = thesauro.get(parte);
+                        tr.addRelaciones(partes, parte);
+
+                        // for (String sinonimo : tr.getNombresRelaciones()) {
+                        //     if (thesauro.containsKey(sinonimo)) {
+                        //         TokenRelation trSinonimo = thesauro.get(sinonimo);
+                        //         trSinonimo.addRelaciones(tr.getRelaciones(), sinonimo);
+                        //     }
+                        // }
+                    }
+                    else {
+                        TokenRelation tr = new TokenRelation();
+                        tr.addRelaciones(partes, parte);
+                        thesauro.put(parte, tr);
+                    }
                 }
             }
-        }
-        br.close ();
+            br.close ();
         }
         catch (Exception e) { System.out.println(e); }
     }
@@ -327,7 +327,7 @@ public class BotLechonk {
         }
 
         while (!exit){
-            System.out.println(Colores.AZUL + "Palabra a consultar : " + Colores.RESET);
+            System.out.println(Colores.AZUL + "Palabras a consultar (ponga , para separarlas) : " + Colores.RESET);
             String palabra = scanner.nextLine();
         
             if(palabra.equalsIgnoreCase("q")){
@@ -335,7 +335,22 @@ public class BotLechonk {
                 exit = true;
                 continue;
             }
-            showResultados(palabra, modo);
+
+            //Partimos la palabra por el caracter ',' , asi puede emplearse apra 1 a N terminos
+            List<String> palabras = new ArrayList<>(
+                Arrays.stream(palabra.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList())
+                );
+
+            //Recorremos mirando los resultados de todos los terminos buscados
+            for (String consulta : palabras){
+                System.out.println("==========================================================");
+                System.out.println("Termino "+ consulta);
+                System.out.println("==========================================================");
+                showResultados(consulta, modo);
+            }
         }
         scanner.close();
     }
