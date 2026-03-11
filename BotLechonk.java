@@ -4,6 +4,16 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.text.Normalizer;
 
+import org.apache.tika.Tika;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.pdf.PDFParser;
+import org.apache.tika.sax.BodyContentHandler;
+import org.apache.tika.exception.TikaException;
+
+import org.xml.sax.SAXException;
+
 // Scrapping de ficheros, contabilización de palabras, serialización y deserialización de objetos
 public class BotLechonk {
     // Cola de rutas de ficheros a procesar
@@ -363,6 +373,8 @@ public class BotLechonk {
 
         BotLechonk bot = new BotLechonk();
 
+        bot.pruebaTikaParser("BotLechonk/data/estiloKarate.pdf");
+
         // Vertir el Thesaurus en un TreeMap si no existe
         File ficheroThesauro = new File(FICHERO_THESAURO);
         if (!ficheroThesauro.exists()) {
@@ -391,4 +403,34 @@ public class BotLechonk {
         bot.menuConsulta();
     }
 
+    // =======================================
+    // PRUEBA
+    // =======================================
+    public void pruebaTikaParser(String rutaFichero) {
+        try {
+            FileInputStream inputstream = new FileInputStream(new File(rutaFichero));
+
+            BodyContentHandler handler = new BodyContentHandler(-1);
+            Metadata metadata = new Metadata();
+            ParseContext pcontext = new ParseContext();
+
+            PDFParser pdfparser = new PDFParser();
+
+            pdfparser.parse(inputstream, handler, metadata, pcontext);
+
+            System.out.println("===== CONTENIDO =====");
+            System.out.println(handler.toString());
+
+            System.out.println("===== METADATA =====");
+
+            String[] metadataNames = metadata.names();
+
+            for(String name : metadataNames) {
+                System.out.println(name + " : " + metadata.get(name));
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
