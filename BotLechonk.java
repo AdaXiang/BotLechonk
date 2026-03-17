@@ -3,15 +3,29 @@ import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.text.Normalizer;
+import java.nio.file.Files;
 
-import org.apache.tika.Tika;
-import org.apache.tika.exception.TikaException;
+// Tika - núcleo
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.ParseContext;
-import org.apache.tika.parser.pdf.PDFParser;
-import org.apache.tika.sax.BodyContentHandler;
-import org.apache.tika.exception.TikaException;
+import org.apache.tika.parser.Parser;
 
+// Parsers específicos
+import org.apache.tika.parser.pdf.PDFParser;
+import org.apache.tika.parser.xml.XMLParser;
+import org.apache.tika.parser.html.JSoupParser;
+
+// Parser automático (fallback)
+import org.apache.tika.parser.AutoDetectParser;
+
+// Handler de contenido
+import org.apache.tika.sax.BodyContentHandler;
+
+// Excepciones
+import org.apache.tika.exception.TikaException;
+import org.xml.sax.SAXException;
+
+import org.apache.tika.Tika;
 import org.xml.sax.SAXException;
 
 // Scrapping de ficheros, contabilización de palabras, serialización y deserialización de objetos
@@ -20,8 +34,6 @@ public class BotLechonk {
     private Queue <String> frontier = new LinkedList <String> (); 
     // TreeMap ordena por clave, HashMap no lo hace
     private Map <String, Ocurrencia> diccionario = new TreeMap <String, Ocurrencia> (); 
-    // Extensiones de ficheros a procesar
-    private List <String> extensiones = new ArrayList <String> (Arrays.asList("txt", "java", "c", "cpp")); 
     // Thesaurus
     private Map<String, TokenRelation> thesauro = new TreeMap<String, TokenRelation>();
     
@@ -41,7 +53,70 @@ public class BotLechonk {
     }
 
     // =======================================================================================================
-    // ==================================== UTILES CRAWLET ===================================================
+    // ======================================= UTIL TIKA ===================================================
+    // =======================================================================================================
+    public File procesarFichero(File fichEntrada) throws IOException {
+        String nombreFichero = fichEntrada.getName();
+        String extension = nombreFichero.substring(nombreFichero.lastIndexOf('.') + 1).toLowerCase();
+        File resultado = null;
+
+        switch (extension) {
+            case "txt":
+            case "java":
+            case "c":
+            case "cpp":
+                resultado = fichEntrada;
+                break;
+            case "pdf":
+                try (FileInputStream input = new FileInputStream(fichEntrada)) {
+                    BodyContentHandler handler = new BodyContentHandler(-1);
+                    PDFParser parser = new PDFParser();
+                    parser.parse(input, handler, new Metadata(), new ParseContext());
+                    resultado = File.createTempFile("parsed_", ".txt");
+                    Files.writeString(resultado.toPath(), handler.toString());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                break;
+            case "html":
+                try (BufferedInputStream input = new BufferedInputStream(new FileInputStream(fichEntrada))) {
+                    BodyContentHandler handler = new BodyContentHandler(-1);
+                    JSoupParser parser = new JSoupParser();
+                    parser.parse(input, handler, new Metadata(), new ParseContext());
+                    resultado = File.createTempFile("parsed_", ".txt");
+                    Files.writeString(resultado.toPath(), handler.toString());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                break;
+            case "xml":
+                try (FileInputStream input = new FileInputStream(fichEntrada)) {
+                    BodyContentHandler handler = new BodyContentHandler(-1);
+                    XMLParser parser = new XMLParser();
+                    parser.parse(input, handler, new Metadata(), new ParseContext());
+                    resultado = File.createTempFile("parsed_", ".txt");
+                    Files.writeString(resultado.toPath(), handler.toString());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                break;
+            default:
+                try (FileInputStream input = new FileInputStream(fichEntrada)) {
+                    BodyContentHandler handler = new BodyContentHandler(-1);
+                    AutoDetectParser parser = new AutoDetectParser();
+                    parser.parse(input, handler, new Metadata(), new ParseContext());
+                    resultado = File.createTempFile("parsed_", ".txt");
+                    Files.writeString(resultado.toPath(), handler.toString());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                break;
+        }
+
+        return resultado;
+    }
+    // =======================================================================================================
+    // ==================================== UTILES CRAWLER ===================================================
     // =======================================================================================================
 
     public void listIt(File directorioRaiz) throws Exception {
@@ -59,32 +134,32 @@ public class BotLechonk {
                     }
                 }
             } else {
-                // Si es un archivo, comprobamos extensión y guardamos la RUTA ABSOLUTA
-                if (this.esExtensionValida(actual.getName())) {
-                    this.frontier.add(actual.getAbsolutePath());
-                }
+                // Si es un archivo y guardamos la ruta relativa
+                String rutaRelativa = directorioRaiz.getName() + "/" + directorioRaiz.toPath().relativize(actual.toPath()).toString();
+                this.frontier.add(rutaRelativa);
             }
         }
     }
 
-     public void listRec(File directorioRaiz) throws Exception {
-        if (directorioRaiz.isDirectory()) {
-            File[] lista = directorioRaiz.listFiles(); 
+    public void listRec(File directorioRaiz, File actual) throws Exception {
+        if (actual.isDirectory()) {
+            File[] lista = actual.listFiles(); 
             if (lista != null) {
                 for (File f : lista) {
                     // Llamada recursiva para procesar subdirectorios
-                    this.listRec(f); 
+                    this.listRec(directorioRaiz, f); 
                 }
             }
         } else {
             // Si es un archivo, comprobamos extensión y guardamos la RUTA ABSOLUTA
-            if (this.esExtensionValida(directorioRaiz.getName())) {
-                this.frontier.add(directorioRaiz.getAbsolutePath());
-            }
+            String rutaRelativa = directorioRaiz.getName() + "/" + directorioRaiz.toPath().relativize(actual.toPath()).toString();
+            this.frontier.add(rutaRelativa);
         }
     }
 
     public void contPalabras (File fichEntrada) throws IOException {
+        String rutaFichero = fichEntrada.getPath();
+        fichEntrada = procesarFichero(fichEntrada);
         BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(fichEntrada), "UTF-8"));
         String linea;
 
@@ -114,23 +189,18 @@ public class BotLechonk {
                     // Se crea una ocurrencia con FTG=0 y se añade el fichero al diccionario parcial
                     Ocurrencia oc = new Ocurrencia(0, new TreeMap<Integer, Integer>());
                     // Se inserta la ocurrencia del fichero en el diccionario parcial y se incrementa el FTG
-                    oc.insertarOcurrencia(fatManager.getIdByPath(fichEntrada.getAbsolutePath()));
+                    oc.insertarOcurrencia(fatManager.getIdByPath(rutaFichero));
                     diccionario.put (s, oc);
                 }
                 // Si la palabra ya existe en el diccionario, se actualiza la ocurrencia del fichero 
                 // en el diccionario parcial y se incrementa el FTG
                 else {
                     Ocurrencia oc = (Ocurrencia) o;
-                    oc.insertarOcurrencia(fatManager.getIdByPath(fichEntrada.getAbsolutePath()));
+                    oc.insertarOcurrencia(fatManager.getIdByPath(rutaFichero));
                 }
             }
         }
         br.close ();
-    }
-
-    public boolean esExtensionValida (String nombreFichero) {
-        String extension = nombreFichero.substring(nombreFichero.lastIndexOf('.') + 1);
-        return this.extensiones.contains(extension);
     }
 
     // =======================================================================================================
@@ -309,7 +379,7 @@ public class BotLechonk {
         }
         else {
             System.out.println(Colores.AMARILLO + "Modo recursivo" + Colores.RESET);
-            this.listRec(fichero);
+            this.listRec(fichero, fichero);
         }
            
         for (String rutaFichero : this.frontier) {
@@ -373,8 +443,6 @@ public class BotLechonk {
 
         BotLechonk bot = new BotLechonk();
 
-        bot.pruebaTikaParser("BotLechonk/data/estiloKarate.pdf");
-
         // Vertir el Thesaurus en un TreeMap si no existe
         File ficheroThesauro = new File(FICHERO_THESAURO);
         if (!ficheroThesauro.exists()) {
@@ -401,36 +469,5 @@ public class BotLechonk {
         }
     
         bot.menuConsulta();
-    }
-
-    // =======================================
-    // PRUEBA
-    // =======================================
-    public void pruebaTikaParser(String rutaFichero) {
-        try {
-            FileInputStream inputstream = new FileInputStream(new File(rutaFichero));
-
-            BodyContentHandler handler = new BodyContentHandler(-1);
-            Metadata metadata = new Metadata();
-            ParseContext pcontext = new ParseContext();
-
-            PDFParser pdfparser = new PDFParser();
-
-            pdfparser.parse(inputstream, handler, metadata, pcontext);
-
-            System.out.println("===== CONTENIDO =====");
-            System.out.println(handler.toString());
-
-            System.out.println("===== METADATA =====");
-
-            String[] metadataNames = metadata.names();
-
-            for(String name : metadataNames) {
-                System.out.println(name + " : " + metadata.get(name));
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 }
